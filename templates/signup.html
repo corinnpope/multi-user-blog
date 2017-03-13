@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <div class="row">
+    <div class="col-md-10">
+      <h2>Register</h2>
+
+        <form method="post">
+          <!-- username -->
+          <div class="form-group">
+            <label for="post-title">Username</label>
+            <input type="text" name="username" value="{{username}}">
+            {{error_username}}
+          </div>
+          <!-- password -->
+          <div class="form-group">
+            <label for="post-content">Password</label>
+            <input type="text" name="password" value="">
+            {{error_password}}
+          </div>
+
+          <!-- confirm password -->
+          <div class="form-group">
+            <label for="post-content">Password</label>
+            <input type="text" name="confirm_password" value="">
+            {{error_confirm_password}}
+          </div>
+
+          <div class="error">{{error}}</div>
+
+          <input type="submit">
+        </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

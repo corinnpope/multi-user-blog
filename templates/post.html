@@ -3,7 +3,20 @@
       <div class="post-title">
       <!-- {{p.title}} -->
         <a href="{{ p.key().id() }}">{{ p.title }}</a>
+        <br>
+        By: {{p.author}}
+        <br>
 
+<!-- {% if username == p.author %}
+      <a href="{{'/edit_post/%s' % p.key().id()}}" > Edit Post</a>
+    {% else %}
+      <a class="login-link" href="/login">login</a>
+      |
+      <a class="login-link" href="/signup">signup</a>
+    {% endif %} -->
+
+
+<!--         <<a href="{{'/edit_post/%s' % p.key().id()}}" > Edit Post</a> -->
 <!--   {{ p.key().id() }} -->
   
 

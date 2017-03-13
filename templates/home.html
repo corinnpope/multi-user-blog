@@ -2,7 +2,11 @@
 
 {% block content %}
 
-  {% for p in posts %}
+	{% for p in posts %}
+
+	{% if username  == p.author %}
+		<a href="{{'/edit_post/%s' % p.key().id()}}" > Edit Post</a>
+    {% endif %} 
     {{ p.render() | safe }}
     <br><br>
   {% endfor %}
