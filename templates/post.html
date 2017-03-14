@@ -6,19 +6,11 @@
         <br>
         By: {{p.author}}
         <br>
-
-<!-- {% if username == p.author %}
-      <a href="{{'/edit_post/%s' % p.key().id()}}" > Edit Post</a>
-    {% else %}
-      <a class="login-link" href="/login">login</a>
-      |
-      <a class="login-link" href="/signup">signup</a>
-    {% endif %} -->
-
-
-<!--         <<a href="{{'/edit_post/%s' % p.key().id()}}" > Edit Post</a> -->
-<!--   {{ p.key().id() }} -->
-  
+        Likes ({{p.like_count}}) 
+        <br>
+        <br>
+        {{error}}
+        <br>
 
     </div>
 
@@ -32,6 +24,18 @@
   <!-- allow html in the blog -->
     {{p._render_text | safe}}
   </div>
+  {% if username  == p.author %}
+    <a href="{{'/edit_post/%s' % p.key().id()}}" > Edit Post</a>
+    <a href="{{'/delete_post/%s' % p.key().id()}}" > Delete Post</a>
+  {% endif %} 
 
+  
+<div>
+    <form method="post" action="/{{p.key().id()}}/like">
+      <input type="submit" name="like-button" value="Like" id="{{p.key().id()}}">
+    </form>
+
+<br>
+<a href="/"> Go Home</a>
 
 </div>

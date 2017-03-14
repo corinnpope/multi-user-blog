@@ -21,6 +21,7 @@
 Hello, {{username}}
   <div class="login-area">
     {% if username %}
+    <a href="new_post"> New Post</a>
       (<a class="login-link" href="/logout">logout</a>)
     {% else %}
       <a class="login-link" href="/login">login</a>
@@ -28,7 +29,7 @@ Hello, {{username}}
       <a class="login-link" href="/signup">signup</a>
     {% endif %}
   </div>
-
+{{error}}
   <hr>
 
   <br>

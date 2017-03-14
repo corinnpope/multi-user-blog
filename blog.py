@@ -148,6 +148,8 @@ class Post(db.Model):
 	# add author property
 	# set to required later
 	author = db.StringProperty(required = False)
+	like_count = db.IntegerProperty(default = 0)
+	user_like = db.StringListProperty()
 	# TODO: add tags property?? 
 	created = db.DateTimeProperty(auto_now_add = True)
 	last_modified = db.DateTimeProperty(auto_now = True)
@@ -156,11 +158,60 @@ class Post(db.Model):
 		self._render_text = self.content.replace('/n', '<br>')
 		return render_str("post.html", p = self)
 
-	# def get_post_id(self):
-	# 	return p.key().id()
+	# def likePost(self):
+	# 	like_count = self.request.get(like_count)
+	# 	if like:
+	# 		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+	# 		post = db.get(key)
 
-	# def get_author(self):
-	#  	return p.key().author()
+	# 		if not post:
+	# 			self.error(404)
+	# 			return
+
+	# 		post.like_count = post.like_count + 1
+
+	# 		post.put()
+	# 	self.render("post.html", like_count = like_count)
+
+# #Flailing here
+class LikePost(BlogHandler):
+    '''Handler for Liking Posts'''
+#  referenced https://discussions.udacity.com/t/stuck-on-getting-like-functionality-to-work/219359 && https://github.com/mangowolf/multi-user_blog
+    def post(self, post_id):
+        if self.user:
+            key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+            post = db.get(key)
+
+            if not post:
+                self.error(404)
+                return
+
+            if self.user.name != post.author:
+            	# make sure user hasn't already like the post
+                if self.user.name in post.user_like:
+                    self.write("you can only like a post once")
+                else:
+                	# otherwise add the user to the list of those who liked it, increment likes, and redirect
+                    post.user_like.append(self.user.name)
+                    post.like_count = like_count + 1
+                    post.put()
+                    time.sleep(0.1)
+                    self.redirect("/")
+            if self.user.name == post.author:
+                self.write("you can't like your own post!")
+
+        else:
+            self.redirect("/login")
+
+# class likePost(BlogHandler):
+		# likes = self.get(like_count)
+		# like_count = like_count + 1
+		# like_count.put()
+    # def post(self):
+    #     postID = self.request.get('postID')
+    #     # Get the Post object from the postID and update the vote count.
+    #     # send the updated count back to the front-end to render it on the front-end
+    #     self.write(json.dumps(({'like_count': updated_count})))
 
 # GAHHHHHHHHH
 class HomePage(BlogHandler):
@@ -197,11 +248,14 @@ class NewPost(BlogHandler):
 		title = self.request.get('title')
 		content = self.request.get('content')
 		author = self.user.name
+		user_like = []
 
 		if title and content:
 			# store to db if title and content are there
 			p = Post(parent = blog_key(), title = title, content = content, author = author)
 			p.put()
+			# otherwise updating lags
+			time.sleep(0.1)
 			self.redirect('/%s' % str(p.key().id()))
 
 		else:
@@ -217,8 +271,9 @@ class EditPost(BlogHandler):
 		if self.user.name == post.author:
 			self.render('edit_post.html', post = post)
 		else:
-			self.render("login.html")
-
+			error = "you cannot edit another user's posts. please log in as the author. "
+			self.render('error.html', error = error)
+			# redirecting to login from error page
 
 	def post(self, post_id):
 		if self.user:
@@ -233,9 +288,30 @@ class EditPost(BlogHandler):
 			time.sleep(0.1)
 			self.redirect('/')
 		else:
-			self.redirect('/login.html')
+			self.redirect('/login')
 
+class DeletePost(BlogHandler):
+	def get(self, post_id):
+		key = db.Key.from_path('Post', int(post_id), parent = blog_key())
+		post = db.get(key)
 
+		if self.user.name == post.author:
+			self.render('delete_post.html', post = post)
+		else:
+			error = "you cannot delete another user's posts. please log in as the author. "
+			self.render('error.html', error = error)
+
+	def post(self, post_id):
+		if self.user:
+			key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+			post = db.get(key)
+
+			post.delete()
+			# otherwise updating lags
+			time.sleep(0.1)
+			self.redirect('/')
+		else:
+			self.redirect('login')
 
 
 # ######### User Signup and Confirmation/Save ###########
@@ -310,7 +386,13 @@ class SaveUser(Signup):
 
 class LogIn(BlogHandler):
 	def get(self):
-		self.render("login.html")
+		
+		# parsed = urlparse.urlparse(url)
+		# if urlparse.parse_qs(parsed.query)['error'] == 55:
+		# 	error = "you cannot edit another user's posts. please log in as the author. "
+		# 	self.render("login.html", error = error)
+		# else:
+			self.render("login.html")
 
 	def post(self):
 		username = self.request.get('username')
@@ -337,6 +419,8 @@ app = webapp2.WSGIApplication([('/', HomePage),
 								('/login', LogIn),
 								('/logout', LogOut),
 								('/signup', SaveUser),
-								('/edit_post/(\d+)', EditPost)
+								('/edit_post/(\d+)', EditPost), 
+								('/delete_post/(\d+)', DeletePost),
+								('/([0-9]+)/like', LikePost)
 								],
 								debug = True)

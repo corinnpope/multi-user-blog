@@ -4,11 +4,15 @@
 
 	{% for p in posts %}
 
+	<!-- check to see if user can edit/delete post and show links -->
 	{% if username  == p.author %}
 		<a href="{{'/edit_post/%s' % p.key().id()}}" > Edit Post</a>
+		<a href="{{'/delete_post/%s' % p.key().id()}}" > Delete Post</a>
     {% endif %} 
+
     {{ p.render() | safe }}
     <br><br>
+    <hr>
   {% endfor %}
 
 {% endblock %}
