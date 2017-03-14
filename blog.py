@@ -193,7 +193,7 @@ class LikePost(BlogHandler):
                 else:
                 	# otherwise add the user to the list of those who liked it, increment likes, and redirect
                     post.user_like.append(self.user.name)
-                    post.like_count = like_count + 1
+                    post.like_count = post.like_count + 1
                     post.put()
                     time.sleep(0.1)
                     self.redirect("/")
@@ -202,16 +202,7 @@ class LikePost(BlogHandler):
 
         else:
             self.redirect("/login")
-
-# class likePost(BlogHandler):
-		# likes = self.get(like_count)
-		# like_count = like_count + 1
-		# like_count.put()
-    # def post(self):
-    #     postID = self.request.get('postID')
-    #     # Get the Post object from the postID and update the vote count.
-    #     # send the updated count back to the front-end to render it on the front-end
-    #     self.write(json.dumps(({'like_count': updated_count})))
+# TODO: Write unlike handler
 
 # GAHHHHHHHHH
 class HomePage(BlogHandler):

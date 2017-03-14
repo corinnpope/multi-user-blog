@@ -1,4 +1,14 @@
 body {
+  margin: 50px;
+  padding-top: 50px;
+}
+
+.date {
+  color: #7f8c8d;
+}
+
+
+/*body {
   padding-top: 5rem;
 }
 
@@ -83,7 +93,7 @@ input[type=submit] {
     text-decoration: none;
 }*/
 
-.post + .post {
+/*.post + .post {
     margin-top: 15px;
 }
 
@@ -107,5 +117,6 @@ input[type=submit] {
 
 .post-content {
     margin-top: 5px;
-}
+}*/
 
+*/
