@@ -2,4 +2,14 @@
 
 {% block content %}
   {{post.render() | safe}}
+  
+<!-- 	{% if comments %}
+		{% for c in comments %}
+    		{{c.comment}}
+	  	{% endfor %}
+
+	{% else%}
+		<center>There are no comments on this post</center>
+    {% endif %} -->
+            <a href="/"> Go Home</a>
 {% endblock %}

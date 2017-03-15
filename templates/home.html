@@ -1,18 +1,13 @@
 {% extends "base.html" %}
 
 {% block content %}
-
 	{% for p in posts %}
-    {{ p.render() | safe }}
-    {{error}}
-    <br>
-    	<!-- check to see if user can edit/delete post and show links -->
-	{% if username  == p.author %}
-		<p class="bg-warning">This is your post. You can <a href="{{'/edit_post/%s' % p.key().id()}}" > edit </a> or <a href="{{'/delete_post/%s' % p.key().id()}}" > delete</a> this post</p>
-    {% endif %}     <br>
-    <a href="/"> Go Home</a>
-
-    <hr>
-  {% endfor %}
-
+        {{ p.render() | safe }}
+        {{error}}
+        <br>
+        	<!-- check to see if user can edit/delete post and show links -->
+    	{% if username  == p.author %}
+    		<p class="bg-warning">This is your post. You can <a href="{{'/edit_post/%s' % p.key().id()}}" > edit </a> or <a href="{{'/delete_post/%s' % p.key().id()}}" > delete</a> this post</p>
+        {% endif %}     <br>
+    {% endfor %}
 {% endblock %}

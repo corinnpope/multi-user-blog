@@ -34,6 +34,9 @@ def render_post(response, post):
     response.out.write('<b>' + post.subject + '</b><br>')
     response.out.write(post.content)
 
+def render_comment(response, comment):
+	response.out.write(comment.comment)
+
 # make sure user & cookie values match
 def make_secure_val(val):
 	return '%s|%s' % (val, hmac.new(secret, val).hexdigest())
@@ -66,6 +69,10 @@ def users_key(group ='default'):
 def blog_key(name = 'default'):
 	return db.Key.from_path('blogs', name)
 
+# TODO add comments_key
+# should this be group or name??
+def comments_key(group = 'defaut'):
+	return db.Key.from_path('comments', name)
 
 
 
@@ -97,6 +104,71 @@ class User(db.Model):
 		u = cls.get_name(name)
 		if u and valid_pw(name, pw, u.password_hash):
 			return u
+
+
+# #########Posts #########
+# must go before comment class for referenceproperty() to work
+class Post(db.Model):
+	title = db.StringProperty(required = True)
+	content = db.TextProperty(required = True)
+	# add author property
+	# set to required later
+	author = db.StringProperty(required = False)
+	like_count = db.IntegerProperty(default = 0)
+	user_like = db.StringListProperty()
+	# TODO: add tags property?? 
+	created = db.DateTimeProperty(auto_now_add = True)
+	last_modified = db.DateTimeProperty(auto_now = True)
+
+	def render(self):
+		self._render_text = self.content.replace('/n', '<br>')
+		return render_str("post.html", p = self)
+
+
+
+# Now add comments class
+# referencing https://cloud.google.com/appengine/articles/modeling#one-to-many
+class Comment(db.Model):
+	# add required tothese later / debugging now
+	posted_to = db.StringProperty(Post)
+	commentor = db.StringProperty(User)
+	comment = db.TextProperty(required = True)
+	created = db.DateTimeProperty(auto_now_add = True)
+
+	@classmethod
+	def get_comment_id(cls, commentor_id):
+		return Comment.get_by_id(commentor_id, parent = comments_key())
+
+	@classmethod
+	def get_comment(cls, comment_content):
+		# return User.all().filter('name =', name).get()
+		c = Comment.all().filter('comment =', comment).get()
+		return c
+
+	def render(self):
+		return render_str("comment.html", c = self)
+		
+	# How to reference
+	# class User(db.Model):
+ #    name = db.StringProperty()
+
+	# class Comment(db.Model):
+	#     user = db.ReferenceProperty(User)
+
+	# comment = db.get(comment_key)
+	# user_name = comment.user.name
+
+	# user = db.get(user_key)
+	# stories_by_user = user.comment_set.get()
+
+	# how to add
+	# scott = User(name='Scott')
+	# scott.put()
+	# Comment(user=scott,
+	#             number='(650) 555 - 2200').put()
+	# Comment(user=scott,
+	#             number='(650) 555 - 2201').put()
+
 
 # #################################################################
 
@@ -140,38 +212,7 @@ class BlogHandler(webapp2.RequestHandler):
 		uid = self.read_cookie('user_id')
 		self.user = uid and User.get_id(int(uid))
 
-# #########Posts #########
 
-class Post(db.Model):
-	title = db.StringProperty(required = True)
-	content = db.TextProperty(required = True)
-	# add author property
-	# set to required later
-	author = db.StringProperty(required = False)
-	like_count = db.IntegerProperty(default = 0)
-	user_like = db.StringListProperty()
-	# TODO: add tags property?? 
-	created = db.DateTimeProperty(auto_now_add = True)
-	last_modified = db.DateTimeProperty(auto_now = True)
-
-	def render(self):
-		self._render_text = self.content.replace('/n', '<br>')
-		return render_str("post.html", p = self)
-
-	# def likePost(self):
-	# 	like_count = self.request.get(like_count)
-	# 	if like:
-	# 		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
-	# 		post = db.get(key)
-
-	# 		if not post:
-	# 			self.error(404)
-	# 			return
-
-	# 		post.like_count = post.like_count + 1
-
-	# 		post.put()
-	# 	self.render("post.html", like_count = like_count)
 
 # #Flailing here
 class LikePost(BlogHandler):
@@ -208,11 +249,12 @@ class LikePost(BlogHandler):
 class HomePage(BlogHandler):
 	def get(self):
 
-		posts = db.GqlQuery("SELECT * FROM Post ORDER BY created DESC")
+		posts = db.GqlQuery("SELECT * FROM Post ORDER BY created DESC limit 10")
+		comments = db.GqlQuery("SELECT * FROM Comment ORDER BY created DESC limit 10")
 		if self.user:
-			self.render('home.html', posts = posts, username = self.user.name)
+			self.render('home.html', posts = posts, comments = comments, username = self.user.name)
 		else:
-			self.render("home.html", posts = posts)
+			self.render("home.html", posts = posts, comments = comments)
 
 # ################################
 
@@ -222,11 +264,14 @@ class PostPage(BlogHandler):
 		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
 		post = db.get(key)
 
+		comment_key = db.Key.from_path('Comment', int(post_id), parent=blog_key())
+		comment = db.get(comment_key)
+
 		if not post:
 			self.error(404)
 			return
 
-		self.render("permalink.html", post = post, username = self.user.name)
+		self.render("permalink.html", post = post, comment = comment, username = self.user.name)
 
 class NewPost(BlogHandler):
 	def get(self):
@@ -304,6 +349,53 @@ class DeletePost(BlogHandler):
 		else:
 			self.redirect('login')
 
+# ########### Now for Comments ########################
+class NewComment(BlogHandler):
+	def get(self, post_id):
+		post = Post.get_by_id(int(post_id), parent=blog_key())
+		# key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+		# post = db.get(key)
+		# similar to how posts are liked
+		if post is None:
+		# this makes sure that the blog exists
+			self.redirect('/')
+		else:
+			self.render("new_comment.html")
+
+	def post(self, post_id):
+		post_key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+		print(post_key)
+		post = db.get(post_key)
+		print(post)
+		comment = self.request.get('comment')
+		print(comment)
+		# commentor = self.user.name
+		posted_to = str(post.key().id())
+		print(posted_to)
+		# check to see if post exists
+		if not post:
+		# if post does not exist
+			return self.error(404)
+
+		if not self.user:# checks user
+			return self.redirect("/login")
+
+		if comment:
+			# store to db if title and content are there
+			commentor = self.user.name
+			print(commentor)
+			c = Comment(parent = blog_key(), comment = comment, posted_to = posted_to, commentor = commentor)
+			c.put()
+			print("comment:" + c.comment)
+			print("posted to:" + c.posted_to)
+			print("commentor" + c.commentor)
+			# otherwise updating lags
+			time.sleep(0.1)
+			self.redirect('/%s' % str(post.key().id()))
+		else:
+			error = "you must enter text"
+			# TODO change to edit_comment
+			self.render("new_comment.html", post = post, error = error)
 
 # ######### User Signup and Confirmation/Save ###########
 
@@ -412,6 +504,7 @@ app = webapp2.WSGIApplication([('/', HomePage),
 								('/signup', SaveUser),
 								('/edit_post/(\d+)', EditPost), 
 								('/delete_post/(\d+)', DeletePost),
-								('/([0-9]+)/like', LikePost)
+								('/([0-9]+)/like', LikePost),
+								('/([0-9]+)/new_comment', NewComment)
 								],
 								debug = True)
