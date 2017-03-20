@@ -135,6 +135,10 @@ class Comment(db.Model):
 	comment = db.TextProperty(required = True)
 	created = db.DateTimeProperty(auto_now_add = True)
 
+	def render(self):
+		self._render_text = self.comment.replace('/n', '<br>')
+		return render_str("comment.html", c = self)
+
 	@classmethod
 	def get_comment_id(cls, commentor_id):
 		return Comment.get_by_id(commentor_id, parent = comments_key())
@@ -145,8 +149,7 @@ class Comment(db.Model):
 		c = Comment.all().filter('comment =', comment).get()
 		return c
 
-	def render(self):
-		return render_str("comment.html", c = self)
+
 		
 	# How to reference
 	# class User(db.Model):
@@ -252,9 +255,10 @@ class HomePage(BlogHandler):
 		posts = db.GqlQuery("SELECT * FROM Post ORDER BY created DESC limit 10")
 		comments = db.GqlQuery("SELECT * FROM Comment ORDER BY created DESC limit 10")
 		if self.user:
-			self.render('home.html', posts = posts, comments = comments, username = self.user.name)
+			# , comments = comments
+			self.render('home.html', posts = posts, username = self.user.name)
 		else:
-			self.render("home.html", posts = posts, comments = comments)
+			self.render("home.html", posts = posts)
 
 # ################################
 
@@ -263,15 +267,17 @@ class PostPage(BlogHandler):
 		# convert post id to an int
 		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
 		post = db.get(key)
-
-		comment_key = db.Key.from_path('Comment', int(post_id), parent=blog_key())
-		comment = db.get(comment_key)
-
-		if not post:
+		post_id_num = post.key().id()
+		print(post_id_num)
+		# comment_key = db.Key.from_path('Comment', int(post_id), parent=blog_key())
+		# comment = db.get(comment_key)
+		comments = Comment.all().filter('posted_to =', str(post_id_num))
+		print(comments)
+		if not (post):
 			self.error(404)
 			return
-
-		self.render("permalink.html", post = post, comment = comment, username = self.user.name)
+#  comments = comments,
+		self.render("permalink.html", post = post, comments = comments, username = self.user.name)
 
 class NewPost(BlogHandler):
 	def get(self):
@@ -360,11 +366,13 @@ class NewComment(BlogHandler):
 		# this makes sure that the blog exists
 			self.redirect('/')
 		else:
-			self.render("new_comment.html")
+			print("post id : " + post_id)
+			self.render("new_comment.html", post_id = post_id)
 
 	def post(self, post_id):
 		post_key = db.Key.from_path('Post', int(post_id), parent=blog_key())
 		print(post_key)
+		# added .id()
 		post = db.get(post_key)
 		print(post)
 		comment = self.request.get('comment')
@@ -389,13 +397,16 @@ class NewComment(BlogHandler):
 			print("comment:" + c.comment)
 			print("posted to:" + c.posted_to)
 			print("commentor" + c.commentor)
+			print('/%s' % str(post.key().id()))
 			# otherwise updating lags
 			time.sleep(0.1)
+			# self.render('post.html', comment = comment, posted_to = posted_to, commentor = commentor)
+			# self.redirect('/%s' % str(post.key().id()))
 			self.redirect('/%s' % str(post.key().id()))
 		else:
 			error = "you must enter text"
 			# TODO change to edit_comment
-			self.render("new_comment.html", post = post, error = error)
+			self.render('%s' % str(post.key().id()), post = post, error = error)
 
 # ######### User Signup and Confirmation/Save ###########
 

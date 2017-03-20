@@ -1,15 +1,26 @@
 {% extends "base.html" %}
 
 {% block content %}
-  {{post.render() | safe}}
-  
-<!-- 	{% if comments %}
+	{{post.render() | safe}}
+	
+	{% if comments %}
 		{% for c in comments %}
-    		{{c.comment}}
+		<div class="container">
+		  <div class = "row">
+		    <div class="col-md-6">
+		    {{c.comment}}
+		    <br><br>
+
+		      <!-- pretty print the date -->
+		     <small class="text-muted">Comment posted by {{c.commentor}} on {{c.created.strftime("%b %d, %Y")}}</small>
+		     </div>
+		   </div>
+		  </div>
 	  	{% endfor %}
 
 	{% else%}
 		<center>There are no comments on this post</center>
-    {% endif %} -->
-            <a href="/"> Go Home</a>
+    {% endif %}
+
+	<a href="/"> Go Home</a>
 {% endblock %}
