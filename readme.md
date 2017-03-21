@@ -2,9 +2,9 @@
 
 ## Introduction
 
-> This is a simple blog website that allows multiple users to post blog posts and add comments. 
+> This is a simple blog website that allows multiple users to post blog posts and add comments. It includes basic authentication features and basic security features for users. 
 
-## Code Samples
+## Requirements
 
 This application was built to meet the following requirements:
 
