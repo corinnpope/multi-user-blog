@@ -2,17 +2,25 @@
 
 {% block content %}
 	{{post.render() | safe}}
-	
+
+
 	{% if comments %}
 		{% for c in comments %}
 		<div class="container">
 		  <div class = "row">
 		    <div class="col-md-6">
-		    {{c.comment}}
-		    <br><br>
-
-		      <!-- pretty print the date -->
+		    <hr>
+		    <!-- pretty print the date -->
 		     <small class="text-muted">Comment posted by {{c.commentor}} on {{c.created.strftime("%b %d, %Y")}}</small>
+		     <br>
+		    {{c.comment}}
+		    
+
+
+		{% if username  == c.commentor %}
+    		<p class="bg-warning">This is your comment. You can <a href="{{'/%s' % c.key().id()}}/edit_comment" > edit it </a> or <a href="{{'/%s' % c.key().id()}}/delete_comment" > delete it. </a> 
+        {% endif %} 
+
 		     </div>
 		   </div>
 		  </div>

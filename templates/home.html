@@ -2,12 +2,22 @@
 
 {% block content %}
 	{% for p in posts %}
-        {{ p.render() | safe }}
-        {{error}}
+        <div class="container">
+		  <div class = "row">
+		    <div class="col-md-12">
         <br>
         	<!-- check to see if user can edit/delete post and show links -->
     	{% if username  == p.author %}
-    		<p class="bg-warning">This is your post. You can <a href="{{'/edit_post/%s' % p.key().id()}}" > edit </a> or <a href="{{'/delete_post/%s' % p.key().id()}}" > delete</a> this post</p>
-        {% endif %}     <br>
+    		<p class="bg-warning">The below post is your post. You can <a href="{{'/edit_post/%s' % p.key().id()}}" > edit </a> or <a href="{{'/delete_post/%s' % p.key().id()}}" > delete</a> this post</p>
+        {% endif %}
+        <br>
+	        </div>
+	      </div>
+	    </div>	
+        {{ p.render() | safe }}
+        {{error}}
+
+
+
     {% endfor %}
 {% endblock %}

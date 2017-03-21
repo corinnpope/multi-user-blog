@@ -8,7 +8,7 @@
       <!-- Custom styles for this template -->
     <link href=../static/css/style.css" rel="stylesheet">
 
-  <title>Multi-User Blog Project</title>
+  <title>Grande: Kinda Medium, But Kinda Not</title>
 </head>
 
 <body>
@@ -27,15 +27,6 @@
           <li class="nav-item active">
             <a class="nav-link" href="/">Home</a>
           </li>
-<!--           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="http://example.com" id="dropdown01" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Dropdown</a>
-            <div class="dropdown-menu" aria-labelledby="dropdown01">
-              <a class="dropdown-item" href="#">Action</a>
-              <a class="dropdown-item" href="#">Another action</a>
-              <a class="dropdown-item" href="#">Something else here</a>
-            </div>
-          </li> -->
-        <!-- </ul> -->
           <li class="nav-item">
           {% if username %}
             <!-- <li class = "nav-item">Hello, {{username}}</li> -->
@@ -55,19 +46,6 @@
       </div>
     </nav>
 
-
-<!--   <div class="login-area">
-    {% if username %}
-      <li class="nav-item">Hello, {{username}}. </li>
-    <a href="new_post"> New Post</a>
-      (<a class="login-link" href="/logout">logout</a>)
-    {% else %}
-      <a class="login-link" href="/login">login</a>
-      |
-      <a class="login-link" href="/signup">signup</a>
-    {% endif %}
-  </div>
-{{error}} -->
   <div class="container-fluid">
         {% block content %}
         {% endblock %}
