@@ -2,6 +2,7 @@ import utils
 
 from google.appengine.ext import db
 
+
 # ############Database: Users##########################
 class User(db.Model):
 	"""create a model for a site user with a name and pw"""

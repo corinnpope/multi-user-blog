@@ -53,26 +53,33 @@ class BlogHandler(webapp2.RequestHandler):
 		uid = self.read_cookie('user_id')
 		self.user = uid and User.get_id(int(uid))
 
+
 def login_required(BlogHandler):
-    """
+	"""
     A decorator to confirm a user is logged in or redirect as needed.
     """
-    def login(self, *args, **kwargs):
-        # Redirect to login if user not logged in, else execute func.
-        if not self.user:
-            self.redirect("/login")
-        else:
-            BlogHandler(self, *args, **kwargs)
-    return login
+	def login(self, *args, **kwargs):
+		# Redirect to login if user not logged in, else execute func.
+		if not self.user:
+			self.redirect("/login")
+		else:
+			BlogHandler(self, *args, **kwargs)
+	return login
+
 
 # #Flailing here
 class LikePost(BlogHandler):
     """Handler for Liking Posts"""
-#  referenced https://discussions.udacity.com/t/stuck-on-getting-like-
-# functionality-to-work/219359 && https://github.com/mangowolf/multi-user_blog
+    # referenced https://discussions.udacity.com/t/stuck-on-getting-like-
+    # functionality-to-work/219359 &&
+    # https://github.com/mangowolf/multi-user_blog
     def post(self, post_id):
         if self.user:
-            key = db.Key.from_path('Post', int(post_id), parent=utils.blog_key())
+            key = db.Key.from_path(
+            	'Post',
+            	int(post_id),
+            	parent=utils.blog_key()
+            	)
             post = db.get(key)
 
             if not post:
@@ -134,13 +141,12 @@ class PostPage(BlogHandler):
 				username = self.user.name
 			else:
 				username = None
-			
 			# get the permalink page
 			self.render(
 				"permalink.html",
 				post=post,
 				comments=comments,
-				username = username
+				username=username
 				)
 		# if the page doesn't exist, redirect home
 		else:
@@ -151,7 +157,7 @@ class NewPost(BlogHandler):
 	@login_required
 	def get(self):
 		if self.user:
-			self.render("new_post.html", username = self.user.name)
+			self.render("new_post.html", username=self.user.name)
 		else:
 			self.render("login.html")
 
@@ -235,6 +241,8 @@ class DeletePost(BlogHandler):
 				error = "you cannot delete another user's posts. please log in \
 						as the author. "
 				self.render('error.html', error=error)
+		else:
+			self.redirect('/')
 
 	@login_required
 	def post(self, post_id):
@@ -243,7 +251,11 @@ class DeletePost(BlogHandler):
 		# check to see if post exists
 		if post is not None:
 			if self.user.name == post.author:
-				key = db.Key.from_path('Post', int(post_id), parent=utils.blog_key())
+				key = db.Key.from_path(
+					'Post',
+					int(post_id),
+					parent=utils.blog_key()
+					)
 				post = db.get(key)
 				post.delete()
 				# otherwise updating lags
@@ -266,7 +278,7 @@ class NewComment(BlogHandler):
 			self.redirect('/')
 		else:
 			username = self.user.name
-			self.render("new_comment.html", post_id=post_id, username = username)
+			self.render("new_comment.html", post_id=post_id, username=username)
 
 	@login_required
 	def post(self, post_id):
@@ -316,7 +328,7 @@ class EditComment(BlogHandler):
 			# make sure current user is the comment owner
 			if self.user.name == comment.commentor:
 				username = self.user.name
-				self.render('edit_comment.html', comment=comment, username = username)
+				self.render('edit_comment.html', comment=comment, username=username)
 			else:
 				error = "you cannot edit another user's comments. please log in \
 						as the author. "
@@ -354,7 +366,7 @@ class DeleteComment(BlogHandler):
 			# make sure comment owner is current user
 			if self.user.name == comment.commentor:
 				username = self.user.name
-				self.render('delete_comment.html', comment=comment, username = username)
+				self.render('delete_comment.html', comment=comment, username=username)
 			else:
 				error = "you cannot delete another user's comments. please log in \
 				as the author. "
@@ -382,7 +394,7 @@ class DeleteComment(BlogHandler):
 
 # ######### User Signup and Confirmation/Save ###########
 def valid_username(username):
-	"""Check for valid username """
+	"""regex to check for valid username """
 	USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
 	return username and USER_RE.match(username)
 
