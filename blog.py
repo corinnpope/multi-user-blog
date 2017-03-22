@@ -9,148 +9,18 @@ import hashlib
 import hmac
 import webapp2
 import jinja2
-
-
+import utils
+from models import User, Post, Comment
 from google.appengine.ext import db
-
-# setup jinja
-template_dir = os.path.join(os.path.dirname(__file__), 'templates')
-jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir),
-                               autoescape=True)
-
-secret = 'udacity_full_stack'
-
-
-# fix "nameError: global name 'render_str' is not defined"
-def render_str(template, **params):
-	t = jinja_env.get_template(template)
-	return t.render(params)
-
-
-def render_post(response, post):
-	# bold and break the post title
-	response.out.write('<b>' + post.title + '</b><br>')
-	response.out.write(post.content)
-
-
-def render_comment(response, comment):
-	response.out.write(comment.comment)
-
-
-def make_secure_val(val):
-	# make sure user & cookie values match
-	return '%s|%s' % (val, hmac.new(secret, val).hexdigest())
-
-
-def check_secure_val(secure_val):
-	# split the secure val at the pipe and make sure they're the same
-	val = secure_val.split('|')[0]
-	if secure_val == make_secure_val(val):
-		return val
-
-
-# make things secure
-def make_salt(length=5):
-	return ''.join(random.choice(letters) for x in xrange(length))
-
-
-def make_password_hash(name, pw, salt=None):
-	if not salt:
-		salt = make_salt()
-	h = hashlib.sha256(name + pw + salt).hexdigest()
-	return '%s,%s' % (salt, h)
-
-
-#  make sure pw hash is same as hash
-def valid_pw(name, password, h):
-	salt = h.split(',')[0]
-	return h == make_password_hash(name, password, salt)
-
-
-# ######users and blog key
-def users_key(group='default'):
-	return db.Key.from_path('users', group)
-
-
-def blog_key(name='default'):
-	return db.Key.from_path('blogs', name)
-
-
-# TODO add comments_key
-# should this be group or name??
-def comments_key(group='defaut'):
-	return db.Key.from_path('comments', name)
-
-
-# ############Database: Users##########################
-class User(db.Model):
-	name = db.StringProperty(required=True)
-	password_hash = db.StringProperty(required=True)
-
-	@classmethod
-	def get_id(cls, uid):
-		return User.get_by_id(uid, parent=users_key())
-
-	@classmethod
-	def get_name(cls, name):
-		# return User.all().filter('name =', name).get()
-		u = User.all().filter('name =', name).get()
-		return u
-
-	@classmethod
-	def register(cls, name, pw):
-		password_hash = make_password_hash(name, pw)
-		return User(
-					parent=users_key(),
-					name=name,
-					password_hash=password_hash)
-
-	@classmethod
-	def login(cls, name, pw):
-		u = cls.get_name(name)
-		if u and valid_pw(name, pw, u.password_hash):
-			return u
-
-
-# #########Posts #########
-# must go before comment class for referenceproperty() to work
-class Post(db.Model):
-	# TODO: add tags property??
-	title = db.StringProperty(required=True)
-	content = db.TextProperty(required=True)
-	author = db.StringProperty(required=True)
-	like_count = db.IntegerProperty(default=0)
-	user_like = db.StringListProperty()
-	created = db.DateTimeProperty(auto_now_add=True)
-	last_modified = db.DateTimeProperty(auto_now=True)
-
-	def render(self):
-		self._render_text = self.content.replace('/n', '<br>')
-		return render_str("post.html", p=self)
-
-
-# Now add comments class
-# referencing https://cloud.google.com/appengine/articles/modeling#one-to-many
-class Comment(db.Model):
-	# make these reference Post & User
-	posted_to = db.StringProperty(Post)
-	commentor = db.StringProperty(User)
-	comment = db.TextProperty(required=True)
-	created = db.DateTimeProperty(auto_now_add=True)
-	# ?? I thought this would be needed in permalink.html like 	{{post.render()
-	# ...| safe}}...apparently NOT needed. Why?
-	# def render(self):
-	# 	self._render_text = self.comment.replace('/n', '<br>')
-	# 	return render_str("comment.html", c = self)
-# #################################################################
 
 
 class BlogHandler(webapp2.RequestHandler):
+	"""handles basic methods for all blog pages"""
 	def write(self, *a, **kw):
 		self.response.out.write(*a, **kw)
 
 	def render_str(self, template, **params):
-		t = jinja_env.get_template(template)
+		t = utils.jinja_env.get_template(template)
 		return t.render(params)
 
 	def render(self, template, **kw):
@@ -158,7 +28,7 @@ class BlogHandler(webapp2.RequestHandler):
 
 	# Do Cookie Monster Stuff
 	def set_cookie(self, name, val):
-		cookie_value = make_secure_val(val)
+		cookie_value = utils.make_secure_val(val)
 		# set and expiration time 2 weeks from now
 		# expires = time.time() + 14 * 24 * 3600
 		# strftime("%b %d, %Y", expires)
@@ -169,7 +39,7 @@ class BlogHandler(webapp2.RequestHandler):
 
 	def read_cookie(self, name):
 		cookie_value = self.request.cookies.get(name)
-		return cookie_value and check_secure_val(cookie_value)
+		return cookie_value and utils.check_secure_val(cookie_value)
 
 	# ############login/logout/initialize ###################
 	def login(self, user):
@@ -183,15 +53,26 @@ class BlogHandler(webapp2.RequestHandler):
 		uid = self.read_cookie('user_id')
 		self.user = uid and User.get_id(int(uid))
 
+def login_required(BlogHandler):
+    """
+    A decorator to confirm a user is logged in or redirect as needed.
+    """
+    def login(self, *args, **kwargs):
+        # Redirect to login if user not logged in, else execute func.
+        if not self.user:
+            self.redirect("/login")
+        else:
+            BlogHandler(self, *args, **kwargs)
+    return login
 
 # #Flailing here
 class LikePost(BlogHandler):
-    '''Handler for Liking Posts'''
+    """Handler for Liking Posts"""
 #  referenced https://discussions.udacity.com/t/stuck-on-getting-like-
 # functionality-to-work/219359 && https://github.com/mangowolf/multi-user_blog
     def post(self, post_id):
         if self.user:
-            key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+            key = db.Key.from_path('Post', int(post_id), parent=utils.blog_key())
             post = db.get(key)
 
             if not post:
@@ -222,6 +103,7 @@ class LikePost(BlogHandler):
 # GAHHHHHHHHH
 class HomePage(BlogHandler):
 	def get(self):
+		"""display the homepage with up to ten posts"""
 		# for style...A MySQL literal string can contain a raw newline.
 		# A Datastore GQL literal string cannot.
 		# https://cloud.google.com/datastore/docs/reference/gql_reference
@@ -238,37 +120,42 @@ class HomePage(BlogHandler):
 
 class PostPage(BlogHandler):
 	def get(self, post_id):
+		"""method to display posts via permalink"""
 		# convert post id to an int
-		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+		key = db.Key.from_path('Post', int(post_id), parent=utils.blog_key())
 		post = db.get(key)
-		post_id_num = post.key().id()
-		# find all the comments for the current post
-		comments = Comment.all().filter('posted_to =', str(post_id_num))
-
-		if self.user:
-			username = self.user.name
+		# check to see if post exists, if it does get into
+		if post is not None:
+			post_id_num = post.key().id()
+			# find all the comments for the current post
+			comments = Comment.all().filter('posted_to =', str(post_id_num))
+			# get the username if they're logged in, otherwise set it to none
+			if self.user:
+				username = self.user.name
+			else:
+				username = None
+			
+			# get the permalink page
+			self.render(
+				"permalink.html",
+				post=post,
+				comments=comments,
+				username = username
+				)
+		# if the page doesn't exist, redirect home
 		else:
-			username = None
-
-		if not (post):
-			self.error(404)
-			return
-		# get the permalink page
-		self.render(
-			"permalink.html",
-			post=post,
-			comments=comments,
-			username = username
-			)
+			self.redirect('/')
 
 
 class NewPost(BlogHandler):
+	@login_required
 	def get(self):
 		if self.user:
-			self.render("new_post.html")
+			self.render("new_post.html", username = self.user.name)
 		else:
 			self.render("login.html")
 
+	@login_required
 	def post(self):
 		title = self.request.get('title')
 		content = self.request.get('content')
@@ -279,7 +166,7 @@ class NewPost(BlogHandler):
 		if title and content:
 			# store to db if title and content are there
 			p = Post(
-				parent=blog_key(),
+				parent=utils.blog_key(),
 				title=title,
 				content=content,
 				author=author)
@@ -299,82 +186,91 @@ class NewPost(BlogHandler):
 
 
 class EditPost(BlogHandler):
+	@login_required
 	def get(self, post_id):
-		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+		key = db.Key.from_path('Post', int(post_id), parent=utils.blog_key())
 		post = db.get(key)
-		# only show the edit page if the current user is the author
-		if not self.user:
-			return self.redirect("/login")
+		# check to see if post exists
+		if post is not None:
+			if self.user.name == post.author:
+				self.render('edit_post.html', post=post)
+			else:
+				error = "you cannot edit another user's posts. please log in as \
+						 the author. "
+				self.render('error.html', error=error)
+				# redirecting to login from error page
 
-		if self.user.name == post.author:
-			self.render('edit_post.html', post=post)
-		else:
-			error = "you cannot edit another user's posts. please log in as \
-					 the author. "
-			self.render('error.html', error=error)
-			# redirecting to login from error page
-
+	@login_required
 	def post(self, post_id):
-		if self.user:
-			key = db.Key.from_path('Post', int(post_id), parent=blog_key())
-			post = db.get(key)
-			# get what is changed
-			post.title = self.request.get('title')
-			post.content = self.request.get('content')
-			# and put it in the db
-			post.put()
-			# include this, otherwise updating lags
-			time.sleep(0.1)
-			self.redirect('/')
+		key = db.Key.from_path('Post', int(post_id), parent=utils.blog_key())
+		post = db.get(key)
+		# check to see if post exists
+		if post is not None:
+			# check that the current user is the author
+			if self.user.name == post.author:
+				# get what is changed
+				post.title = self.request.get('title')
+				post.content = self.request.get('content')
+				# and put it in the db
+				post.put()
+				# include this, otherwise updating lags
+				time.sleep(0.1)
+				self.redirect('/')
+			else:
+				self.redirect('/login')
 		else:
-			self.redirect('/login')
+			self.redirect('/')
 
 
 class DeletePost(BlogHandler):
+	@login_required
 	def get(self, post_id):
-		key = db.Key.from_path('Post', int(post_id), parent=blog_key())
+		key = db.Key.from_path('Post', int(post_id), parent=utils.blog_key())
 		post = db.get(key)
+		if post is not None:
+			# users can only delete their own posts
+			if self.user.name == post.author:
+				self.render('delete_post.html', post=post)
+			else:
+				error = "you cannot delete another user's posts. please log in \
+						as the author. "
+				self.render('error.html', error=error)
 
-		if not self.user:
-			return self.redirect("/login")
-
-		# users can only delete their own posts
-		if self.user.name == post.author:
-			self.render('delete_post.html', post=post)
-		else:
-			error = "you cannot delete another user's posts. please log in \
-					as the author. "
-			self.render('error.html', error=error)
-
+	@login_required
 	def post(self, post_id):
-		if self.user:
-			key = db.Key.from_path('Post', int(post_id), parent=blog_key())
-			post = db.get(key)
-			post.delete()
-			# otherwise updating lags
-			time.sleep(0.1)
-			self.redirect('/')
+		key = db.Key.from_path('Post', int(post_id), parent=utils.blog_key())
+		post = db.get(key)
+		# check to see if post exists
+		if post is not None:
+			if self.user.name == post.author:
+				key = db.Key.from_path('Post', int(post_id), parent=utils.blog_key())
+				post = db.get(key)
+				post.delete()
+				# otherwise updating lags
+				time.sleep(0.1)
+				self.redirect('/')
+			else:
+				self.redirect('login')
 		else:
-			self.redirect('login')
+			self.redirect('/')
 
 
 # ########### Now for Comments ########################
 class NewComment(BlogHandler):
+	@login_required
 	def get(self, post_id):
-		post = Post.get_by_id(int(post_id), parent=blog_key())
+		post = Post.get_by_id(int(post_id), parent=utils.blog_key())
 		# similar to how posts are liked
-
 		if post is None:
 			# this makes sure that the post exists
 			self.redirect('/')
-		if not self.user:
-			return self.redirect("/login")
 		else:
-			self.render("new_comment.html", post_id=post_id)
+			username = self.user.name
+			self.render("new_comment.html", post_id=post_id, username = username)
 
+	@login_required
 	def post(self, post_id):
-		post_key = db.Key.from_path('Post', int(post_id), parent=blog_key())
-		print(post_key)
+		post_key = db.Key.from_path('Post', int(post_id), parent=utils.blog_key())
 		post = db.get(post_key)
 
 		# get the comment text and the current post
@@ -385,16 +281,13 @@ class NewComment(BlogHandler):
 		if not post:
 			# if post does not exist
 			return self.error(404)
-		# checks user
-		if not self.user:
-			return self.redirect("/login")
 
 		if comment:
 			# store to db if title and content are there
 			commentor = self.user.name
 			print(commentor)
 			c = Comment(
-				parent=blog_key(),
+				parent=utils.blog_key(),
 				comment=comment,
 				posted_to=posted_to,
 				commentor=commentor)
@@ -414,76 +307,90 @@ class NewComment(BlogHandler):
 
 
 class EditComment(BlogHandler):
+	@login_required
 	def get(self, post_id):
-		key = db.Key.from_path('Comment', int(post_id), parent=blog_key())
+		key = db.Key.from_path('Comment', int(post_id), parent=utils.blog_key())
 		comment = db.get(key)
-
-		if not self.user:
-			return self.redirect("/login")
-
-		# make sure current user is the comment owner
-		if self.user.name == comment.commentor:
-			self.render('edit_comment.html', comment=comment)
+		# check to make sure comment exists
+		if comment is not None:
+			# make sure current user is the comment owner
+			if self.user.name == comment.commentor:
+				username = self.user.name
+				self.render('edit_comment.html', comment=comment, username = username)
+			else:
+				error = "you cannot edit another user's comments. please log in \
+						as the author. "
+				self.render('error.html', error=error)
+				# redirecting to login from error page
 		else:
-			error = "you cannot edit another user's comments. please log in \
-					as the author. "
-			self.render('error.html', error=error)
-			# redirecting to login from error page
-
-	def post(self, post_id):
-		if self.user:
-			key = db.Key.from_path('Comment', int(post_id), parent=blog_key())
-			comment = db.get(key)
-			# get the comment from the page if updated
-			comment.comment = self.request.get('comment')
-			comment.put()
-			# otherwise updating lags
-			time.sleep(0.1)
 			self.redirect('/')
+
+	@login_required
+	def post(self, post_id):
+		key = db.Key.from_path('Comment', int(post_id), parent=utils.blog_key())
+		comment = db.get(key)
+		# again, check to make sure comment exists
+		if comment is not None:
+			# check to make sure current user is comment owner
+			if self.user.name == comment.commentor:
+				# get the comment from the page if updated
+				comment.comment = self.request.get('comment')
+				comment.put()
+				# otherwise updating lags
+				time.sleep(0.1)
+				self.redirect('/')
+			else:
+				self.redirect('/')
 		else:
-			self.redirect('/login')
+			self.redirect('/')
 
 
 class DeleteComment(BlogHandler):
+	@login_required
 	def get(self, post_id):
-		key = db.Key.from_path('Comment', int(post_id), parent=blog_key())
+		key = db.Key.from_path('Comment', int(post_id), parent=utils.blog_key())
 		comment = db.get(key)
-		# make sure comment owner is current user
-		if self.user.name == comment.commentor:
-			self.render('delete_comment.html', comment=comment)
+		if comment is not None:
+			# make sure comment owner is current user
+			if self.user.name == comment.commentor:
+				username = self.user.name
+				self.render('delete_comment.html', comment=comment, username = username)
+			else:
+				error = "you cannot delete another user's comments. please log in \
+				as the author. "
+				self.render('error.html', error=error)
 		else:
-			error = "you cannot delete another user's comments. please log in \
-			as the author. "
-			self.render('error.html', error=error)
-
-	def post(self, post_id):
-		if self.user:
-			key = db.Key.from_path('Comment', int(post_id), parent=blog_key())
-			comment = db.get(key)
-
-			comment.delete()
-			# otherwise updating lags
-			time.sleep(0.1)
 			self.redirect('/')
+
+	@login_required
+	def post(self, post_id):
+		key = db.Key.from_path('Comment', int(post_id), parent=utils.blog_key())
+		comment = db.get(key)
+		# check to see comment exists
+		if comment is not None:
+			# make sure comment owner is current user
+			if self.user.name == comment.commentor:
+				comment.delete()
+				# otherwise updating lags
+				time.sleep(0.1)
+				self.redirect('/')
+			else:
+				self.redirect('login')
 		else:
-			self.redirect('login')
+			self.redirect('/')
 
 
 # ######### User Signup and Confirmation/Save ###########
-
-# Check for valid username and password values
-USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
-
-
 def valid_username(username):
-    return username and USER_RE.match(username)
-
-
-PASS_RE = re.compile(r"^.{3,20}$")
+	"""Check for valid username """
+	USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
+	return username and USER_RE.match(username)
 
 
 def valid_password(password):
-    return password and PASS_RE.match(password)
+	"""regex to check password validity"""
+	PASS_RE = re.compile(r"^.{3,20}$")
+	return password and PASS_RE.match(password)
 
 
 class Signup(BlogHandler):
@@ -521,7 +428,7 @@ class Signup(BlogHandler):
 
 class SaveUser(Signup):
 	def done(self):
-		# check to see if user exists
+		"""check to see if user exists and log them in if true"""
 		u = User.get_name(self.username)
 		if u:
 			msg = "Username taken"
